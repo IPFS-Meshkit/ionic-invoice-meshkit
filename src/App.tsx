@@ -1,5 +1,8 @@
-import { IonApp, setupIonicReact } from "@ionic/react";
+import { IonApp, setupIonicReact, IonRouterOutlet } from "@ionic/react";
+import { IonReactRouter } from "@ionic/react-router";
+import { Route, Redirect } from "react-router-dom";
 import Home from "./pages/Home";
+import MeshKitPage from "./pages/MeshKit";
 
 /* Core CSS required for Ionic components to work properly */
 import "@ionic/react/css/core.css";
@@ -24,7 +27,19 @@ setupIonicReact();
 
 const App: React.FC = () => (
   <IonApp>
-    <Home />
+    <IonReactRouter>
+      <IonRouterOutlet>
+        <Route exact path="/home">
+          <Home />
+        </Route>
+        <Route exact path="/meshkit">
+          <MeshKitPage />
+        </Route>
+        <Route exact path="/">
+          <Redirect to="/home" />
+        </Route>
+      </IonRouterOutlet>
+    </IonReactRouter>
   </IonApp>
 );
 

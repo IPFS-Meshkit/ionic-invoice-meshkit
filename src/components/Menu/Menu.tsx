@@ -5,8 +5,9 @@ import { isPlatform, IonToast } from "@ionic/react";
 import { EmailComposer } from "capacitor-email-composer";
 import { Printer } from "@ionic-native/printer";
 import { IonActionSheet, IonAlert } from "@ionic/react";
-import { saveOutline, save, mail, print } from "ionicons/icons";
+import { saveOutline, save, mail, print, cloudUploadOutline, cloudDownloadOutline } from "ionicons/icons";
 import { APP_NAME } from "../../app-data.js";
+import { backupInvoiceToIPFS, restoreInvoiceFromIPFS } from "../../services/MeshkitService";
 
 const Menu: React.FC<{
   showM: boolean;
@@ -22,6 +23,17 @@ const Menu: React.FC<{
   const [showAlert4, setShowAlert4] = useState(false);
   const [showToast1, setShowToast1] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+
+  const [showAlertBackupMissingFile, setShowAlertBackupMissingFile] = useState(false);
+  const [showAlertBackupSuccess, setShowAlertBackupSuccess] = useState(false);
+  const [showAlertBackupError, setShowAlertBackupError] = useState(false);
+  const [backupCid, setBackupCid] = useState("");
+  const [backupErrorMessage, setBackupErrorMessage] = useState("");
+
+  const [showAlertRestore, setShowAlertRestore] = useState(false);
+  const [showAlertRestoreSuccess, setShowAlertRestoreSuccess] = useState(false);
+  const [showAlertRestoreError, setShowAlertRestoreError] = useState(false);
+
   /* Utility functions */
   const _validateName = async (filename) => {
     filename = filename.trim();
@@ -43,11 +55,9 @@ const Menu: React.FC<{
     }
     return true;
   };
-
   const getCurrentFileName = () => {
     return props.file;
   };
-
   const _formatString = (filename) => {
     /* Remove whitespaces */
     while (filename.indexOf(" ") !== -1) {
@@ -55,14 +65,12 @@ const Menu: React.FC<{
     }
     return filename;
   };
-
   const doPrint = () => {
     if (isPlatform("hybrid")) {
       const printer = Printer;
       printer.print(AppGeneral.getCurrentHTMLContent());
     } else {
       const content = AppGeneral.getCurrentHTMLContent();
-      // useReactToPrint({ content: () => content });
       const printWindow = window.open("/printwindow", "Print Invoice");
       printWindow.document.write(content);
       printWindow.print();
@@ -86,15 +94,10 @@ const Menu: React.FC<{
     props.updateSelectedFile(props.file);
     setShowAlert2(true);
   };
-
   const doSaveAs = async (filename) => {
-    // event.preventDefault();
     if (filename) {
-      // console.log(filename, _validateName(filename));
       if (await _validateName(filename)) {
-        // filename valid . go on save
         const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
-        // console.log(content);
         const file = new File(
           new Date().toString(),
           new Date().toString(),
@@ -102,8 +105,6 @@ const Menu: React.FC<{
           filename,
           props.bT
         );
-        // const data = { created: file.created, modified: file.modified, content: file.content, password: file.password };
-        // console.log(JSON.stringify(data));
         props.store._saveFile(file);
         props.updateSelectedFile(filename);
         setShowAlert4(true);
@@ -112,12 +113,63 @@ const Menu: React.FC<{
       }
     }
   };
+  const doBackupToIPFS = async () => {
+    if (props.file === "default") {
+      setShowAlertBackupMissingFile(true);
+      return;
+    }
+    try {
+      const data = await props.store._getFile(props.file);
+      const content = encodeURIComponent(AppGeneral.getSpreadsheetContent());
+      const record = await backupInvoiceToIPFS({
+        name: props.file,
+        created: (data as any).created,
+        modified: new Date().toString(),
+        billType: props.bT,
+        content,
+      });
+      setBackupCid(record.cid);
+      setShowAlertBackupSuccess(true);
+    } catch (error) {
+      setBackupErrorMessage(error instanceof Error ? error.message : String(error));
+      setShowAlertBackupError(true);
+    }
+  };
+  
+  const doRestoreFromIPFS = async (cid) => {
+    if (!cid) return;
+    try {
+      const backup = await restoreInvoiceFromIPFS(cid);
+      let filename = backup.name;
+      
+      let counter = 1;
+      while (await props.store._checkKey(filename)) {
+        filename = `${backup.name}_restored_${counter}`;
+        counter++;
+      }
+      
+      const file = new File(
+        backup.created || new Date().toString(),
+        new Date().toString(),
+        backup.content,
+        filename,
+        backup.billType
+      );
+      
+      await props.store._saveFile(file);
+      AppGeneral.viewFile(filename, decodeURIComponent(backup.content));
+      props.updateSelectedFile(filename);
+      setShowAlertRestoreSuccess(true);
+    } catch (error) {
+      setBackupErrorMessage(error instanceof Error ? error.message : String(error));
+      setShowAlertRestoreError(true);
+    }
+  };
 
   const sendEmail = () => {
     if (isPlatform("hybrid")) {
       const content = AppGeneral.getCurrentHTMLContent();
       const base64 = btoa(content);
-
       EmailComposer.open({
         to: ["jackdwell08@gmail.com"],
         cc: [],
@@ -131,7 +183,6 @@ const Menu: React.FC<{
       alert("This Functionality works on Anroid/IOS devices");
     }
   };
-
   return (
     <React.Fragment>
       <IonActionSheet
@@ -145,7 +196,6 @@ const Menu: React.FC<{
             icon: saveOutline,
             handler: () => {
               doSave();
-              console.log("Save clicked");
             },
           },
           {
@@ -153,7 +203,20 @@ const Menu: React.FC<{
             icon: save,
             handler: () => {
               setShowAlert3(true);
-              console.log("Save As clicked");
+            },
+          },
+          {
+            text: "Backup to IPFS",
+            icon: cloudUploadOutline,
+            handler: () => {
+              doBackupToIPFS();
+            },
+          },
+          {
+            text: "Restore from IPFS",
+            icon: cloudDownloadOutline,
+            handler: () => {
+              setShowAlertRestore(true);
             },
           },
           {
@@ -161,7 +224,6 @@ const Menu: React.FC<{
             icon: print,
             handler: () => {
               doPrint();
-              console.log("Print clicked");
             },
           },
           {
@@ -169,7 +231,6 @@ const Menu: React.FC<{
             icon: mail,
             handler: () => {
               sendEmail();
-              console.log("Email clicked");
             },
           },
         ]}
@@ -179,9 +240,7 @@ const Menu: React.FC<{
         isOpen={showAlert1}
         onDidDismiss={() => setShowAlert1(false)}
         header="Alert Message"
-        message={
-          "Cannot update <strong>" + getCurrentFileName() + "</strong> file!"
-        }
+        message={"Cannot update <strong>" + getCurrentFileName() + "</strong> file!"}
         buttons={["Ok"]}
       />
       <IonAlert
@@ -189,11 +248,7 @@ const Menu: React.FC<{
         isOpen={showAlert2}
         onDidDismiss={() => setShowAlert2(false)}
         header="Save"
-        message={
-          "File <strong>" +
-          getCurrentFileName() +
-          "</strong> updated successfully"
-        }
+        message={"File <strong>" + getCurrentFileName() + "</strong> updated successfully"}
         buttons={["Ok"]}
       />
       <IonAlert
@@ -201,9 +256,7 @@ const Menu: React.FC<{
         isOpen={showAlert3}
         onDidDismiss={() => setShowAlert3(false)}
         header="Save As"
-        inputs={[
-          { name: "filename", type: "text", placeholder: "Enter filename" },
-        ]}
+        inputs={[{ name: "filename", type: "text", placeholder: "Enter filename" }]}
         buttons={[
           {
             text: "Ok",
@@ -218,11 +271,74 @@ const Menu: React.FC<{
         isOpen={showAlert4}
         onDidDismiss={() => setShowAlert4(false)}
         header="Save As"
+        message={"File <strong>" + getCurrentFileName() + "</strong> saved successfully"}
+        buttons={["Ok"]}
+      />
+      <IonAlert
+        animated
+        isOpen={showAlertBackupMissingFile}
+        onDidDismiss={() => setShowAlertBackupMissingFile(false)}
+        header="Backup to IPFS"
+        message="Please save the file first using Save or Save As before backing it up to IPFS."
+        buttons={["Ok"]}
+      />
+      <IonAlert
+        animated
+        isOpen={showAlertBackupSuccess}
+        onDidDismiss={() => setShowAlertBackupSuccess(false)}
+        header="Backup to IPFS"
         message={
-          "File <strong>" +
-          getCurrentFileName() +
-          "</strong> saved successfully"
+          "File backed up successfully!<br/><br/>CID: <strong>" +
+          backupCid +
+          "</strong><br/><br/>View: <a href='https://gateway.pinata.cloud/ipfs/" +
+          backupCid +
+          "' target='_blank'>https://gateway.pinata.cloud/ipfs/" +
+          backupCid +
+          "</a>"
         }
+        buttons={["Ok"]}
+      />
+      <IonAlert
+        animated
+        isOpen={showAlertBackupError}
+        onDidDismiss={() => setShowAlertBackupError(false)}
+        header="Backup to IPFS"
+        message={"Backup failed: " + backupErrorMessage}
+        buttons={["Ok"]}
+      />
+      <IonAlert
+        animated
+        isOpen={showAlertRestore}
+        onDidDismiss={() => setShowAlertRestore(false)}
+        header="Restore from IPFS"
+        inputs={[{ name: "cid", type: "text", placeholder: "Enter CID" }]}
+        buttons={[
+          {
+            text: "Cancel",
+            role: "cancel"
+          },
+          {
+            text: "Restore",
+            handler: (alertData) => {
+              doRestoreFromIPFS(alertData.cid);
+            },
+          },
+        ]}
+      />
+      <IonAlert
+        animated
+        isOpen={showAlertRestoreSuccess}
+        onDidDismiss={() => setShowAlertRestoreSuccess(false)}
+        header="Restore from IPFS"
+        message={"Invoice restored successfully and opened!"}
+        buttons={["Ok"]}
+      />
+      <IonAlert
+        animated
+        isOpen={showAlertRestoreError}
+        onDidDismiss={() => setShowAlertRestoreError(false)}
+        header="Restore from IPFS"
+        message={"Restore failed: " + backupErrorMessage}
         buttons={["Ok"]}
       />
       <IonToast
@@ -239,5 +355,4 @@ const Menu: React.FC<{
     </React.Fragment>
   );
 };
-
 export default Menu;

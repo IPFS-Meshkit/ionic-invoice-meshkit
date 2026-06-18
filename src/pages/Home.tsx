@@ -9,16 +9,18 @@ import {
   IonPopover,
   IonTitle,
   IonToolbar,
+  IonButtons,
 } from "@ionic/react";
 import { APP_NAME, DATA } from "../app-data";
 import * as AppGeneral from "../components/socialcalc/index.js";
 import { useEffect, useState } from "react";
 import { Local } from "../components/Storage/LocalStorage";
-import { menu, settings } from "ionicons/icons";
+import { menu, settings, hardwareChipOutline } from "ionicons/icons";
 import "./Home.css";
 import Menu from "../components/Menu/Menu";
 import Files from "../components/Files/Files";
 import NewFile from "../components/NewFile/NewFile";
+import { useHistory } from "react-router";
 
 const Home: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false);
@@ -29,6 +31,7 @@ const Home: React.FC = () => {
   const [selectedFile, updateSelectedFile] = useState("default");
   const [billType, updateBillType] = useState(1);
   const [device] = useState("default");
+  const history = useHistory();
 
   const store = new Local();
 
@@ -73,6 +76,12 @@ const Home: React.FC = () => {
       <IonHeader>
         <IonToolbar color="primary">
           <IonTitle>{APP_NAME}</IonTitle>
+          <IonButtons slot="end">
+            <IonButton onClick={() => history.push("/meshkit")}>
+              <IonIcon icon={hardwareChipOutline} slot="start" />
+              MeshKit SDK
+            </IonButton>
+          </IonButtons>
         </IonToolbar>
       </IonHeader>
       <IonContent fullscreen>
