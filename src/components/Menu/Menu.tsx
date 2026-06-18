@@ -8,6 +8,7 @@ import { IonActionSheet, IonAlert } from "@ionic/react";
 import { saveOutline, save, mail, print, cloudUploadOutline, cloudDownloadOutline } from "ionicons/icons";
 import { APP_NAME } from "../../app-data.js";
 import { backupInvoiceToIPFS, restoreInvoiceFromIPFS } from "../../services/MeshkitService";
+import { BackupSuccessModal } from "../Modals/BackupSuccessModal";
 
 const Menu: React.FC<{
   showM: boolean;
@@ -25,7 +26,6 @@ const Menu: React.FC<{
   const [toastMessage, setToastMessage] = useState("");
 
   const [showAlertBackupMissingFile, setShowAlertBackupMissingFile] = useState(false);
-  const [showAlertBackupSuccess, setShowAlertBackupSuccess] = useState(false);
   const [showAlertBackupError, setShowAlertBackupError] = useState(false);
   const [backupCid, setBackupCid] = useState("");
   const [backupErrorMessage, setBackupErrorMessage] = useState("");
@@ -129,7 +129,27 @@ const Menu: React.FC<{
         content,
       });
       setBackupCid(record.cid);
-      setShowAlertBackupSuccess(true);
+      
+      // Update local file metadata
+      const file = new File(
+        (data as any).created,
+        (data as any).modified, // Keep original modified date
+        (data as any).content,
+        props.file,
+        props.bT,
+        true, // backedUp
+        record.cid,
+        new Date().toISOString()
+      );
+      await props.store._saveFile(file);
+      
+      // Add to backup history
+      await props.store._addBackupHistory({
+        cid: record.cid,
+        timestamp: new Date().toISOString(),
+        name: props.file
+      });
+
     } catch (error) {
       setBackupErrorMessage(error instanceof Error ? error.message : String(error));
       setShowAlertBackupError(true);
@@ -282,21 +302,10 @@ const Menu: React.FC<{
         message="Please save the file first using Save or Save As before backing it up to IPFS."
         buttons={["Ok"]}
       />
-      <IonAlert
-        animated
-        isOpen={showAlertBackupSuccess}
-        onDidDismiss={() => setShowAlertBackupSuccess(false)}
-        header="Backup to IPFS"
-        message={
-          "File backed up successfully!<br/><br/>CID: <strong>" +
-          backupCid +
-          "</strong><br/><br/>View: <a href='https://gateway.pinata.cloud/ipfs/" +
-          backupCid +
-          "' target='_blank'>https://gateway.pinata.cloud/ipfs/" +
-          backupCid +
-          "</a>"
-        }
-        buttons={["Ok"]}
+      <BackupSuccessModal
+        isOpen={!!backupCid}
+        onClose={() => setBackupCid("")}
+        cid={backupCid}
       />
       <IonAlert
         animated
