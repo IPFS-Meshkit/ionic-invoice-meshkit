@@ -1,99 +1,148 @@
-# Project Migration and Fixes
+# Government Billing & Invoice Management System
 
-This project involves the migration of an Ionic v5 app with outdated dependencies to Ionic v7 using Vite as the build tool. The process included transferring code and addressing various issues encountered during the migration.
+A production-ready **Ionic React + Capacitor** application demonstrating the practical implementation of **MeshKit APIs**. This project serves as a comprehensive Government Billing and Invoice Management System, showcasing how decentralized storage can be seamlessly integrated into a mobile-first enterprise architecture.
 
-## Migration Steps
+---
 
-- Create a new Ionic Vite app:
+## Overview
 
-```bash
-npx create-ionic-vite@latest
+The Government Billing Solution is designed to streamline the creation, management, and auditing of public utility bills and invoices. Rather than relying entirely on centralized servers vulnerable to data loss or tampering, this application uses **MeshKit** to automatically back up critical invoice records to the decentralized web via IPFS (InterPlanetary File System). By anchoring invoice data securely, government agencies can guarantee the integrity, transparency, and longevity of their financial records.
+
+## Why Decentralized Invoice Storage?
+
+Integrating decentralized storage resolves several key challenges in public infrastructure and financial record-keeping:
+
+*   **Data Durability:** Decentralized pinning via Pinata ensures that invoice records are highly available and distributed globally.
+*   **Auditability:** Every backed-up invoice generates a cryptographic hash (CID). This tamper-proof identifier acts as a permanent digital fingerprint.
+*   **Content Addressing:** Invoices are stored and retrieved by *what* they are (their content hash) rather than *where* they are located, eliminating broken links.
+*   **Backup and Recovery:** Continuous decentralized synchronization provides an enterprise-grade disaster recovery layer.
+
+---
+
+## Demo
+
+▶️ **[Watch the Demo Video](https://drive.google.com/file/d/1Y9kHuyeKQJYPeStHXeFZ-vkzNspaB8on/view?usp=sharing)**
+
+---
+
+## Features
+
+### 📄 Invoice Management
+*   **Create & Edit Invoices:** Generate bills via an integrated SocialCalc spreadsheet interface.
+*   **Local Storage:** Fast, offline-capable indexing of invoices before backing up.
+*   **Activity Timeline:** Keep track of creation, backups, and restorations.
+
+### 🌐 MeshKit Integration
+*   **IPFS Backups:** Push records directly to decentralized storage using Pinata.
+*   **CID Management:** Cryptographically map local invoices to the IPFS network and generate shareable Gateway Links.
+*   **Restore via CID:** Recover full invoice histories dynamically from the network.
+*   **Interactive Playground:** A dedicated `/meshkit` route to test low-level SDK functions (JSON Storage, File Blob Storage, P2P Messaging).
+
+### 📊 Dashboard
+*   **Key Metrics:** Track total invoices created, backed up, restored, files uploaded, and messages sent.
+*   **Connection Status:** Real-time monitoring of MeshKit Provider connection health.
+*   **CID Explorer:** Built-in tool to directly view pinned IPFS assets.
+
+### 📱 Mobile Support
+*   **Ionic React:** Modern, responsive UI components optimized for native performance.
+*   **Capacitor:** Seamless access to native device features.
+*   **Android:** Ready-to-build Android workspace (`android/` directory included).
+
+---
+
+## Architecture Flow
+
+The application bridges local UI interactions with the decentralized web using the MeshKit wrapper service.
+
+```mermaid
+sequenceDiagram
+    participant UI as Dashboard (React)
+    participant Service as MeshkitService
+    participant SDK as @meshkit/ionic
+    participant Provider as Pinata
+    participant IPFS as IPFS Network
+
+    UI->>Service: handleBackup(invoiceData)
+    Service->>SDK: meshkitInstance.store(payload)
+    SDK->>Provider: Upload to Pinning Service
+    Provider->>IPFS: Pin Data to Network
+    Provider-->>SDK: Return CID
+    SDK-->>Service: Return MeshKitRecord { cid }
+    Service-->>UI: Update Local UI & Save CID
 ```
 
-- Transfer code from the original Ionic v5 project to the new Vite-based project.
+---
 
-- Fix errors encountered during the migration process by addressing them one by one.
+## Project Structure
 
-## Integration of SocialCalc
-
-During the integration of SocialCalc, an issue arose when switching from UMD to ES6 imports. Although the code worked on the web, it failed on an Android emulator due to the unavailability of the window object.
-
-To resolve this, the UMD module was re-implemented, and the window object was defined in the SocialCalc file. Additionally, the SocialCalc file's outdated code lacked variable declarations. To make these variables available at the top of the scope, the var keyword was used.
-
-## Android Emulator Compatibility Fix
-
-To make the project compatible with an Android emulator, ensure that variables are declared at the top of the scope in the SocialCalc file. This step is essential for addressing issues related to the unavailability of the window object on the Android platform.
-
-## Running the Project on Web
-
-To build an APK from the codebase, follow these steps:
-
-- Install Node.js if not already installed.
-
-- Clone the repository:
-
-```bash
-git clone REPO_URL
+```text
+ionic-invoice-meshkit/
+├── android/                  # Capacitor-generated native Android project
+├── src/
+│   ├── app-data.ts           # Mock payload configurations
+│   ├── components/           # React components (Dashboard, Modals, SocialCalc)
+│   ├── pages/                # Main routing views (Home, MeshKit Playground)
+│   ├── services/             # Core logic wrappers (MeshkitService.ts)
+│   ├── App.tsx               # Application root and IonReactRouter setup
+│   └── main.tsx              # Vite entry point
+├── capacitor.config.ts       # Native app configuration
+├── package.json              # Dependencies (React, Ionic, Capacitor, MeshKit)
+└── vite.config.ts            # Build configuration
 ```
 
-- Navigate to the project directory:
+---
 
-```bash
-cd REPO_NAME
-```
+## Installation & Local Development
 
-- Install project dependencies:
+To run the application locally:
 
-```bash
-npm install
-```
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/IPFS-Meshkit/ionic-invoice-meshkit.git
+    cd ionic-invoice-meshkit
+    ```
 
-- Install the Ionic CLI globally:
+2.  **Configure Environment**
+    Create a `.env` file based on `.env.example` and add your Pinata JWT:
+    ```env
+    VITE_PINATA_JWT=your_pinata_jwt_token_here
+    ```
 
-```bash
-npm install -g @ionic/cli
-```
+3.  **Install dependencies**
+    ```bash
+    npm install
+    ```
 
-- Serve the application:
+4.  **Run the development server**
+    ```bash
+    npm run dev
+    ```
 
-```bash
-ionic serve
-```
+---
 
-These steps will set up the project and allow you to test it in a development environment.
+## Running on Android
 
-## Running the Project on Android Device
+To compile and test the application natively on Android:
 
-- Install Android Studio if not already installed.
+1.  **Build the Web Assets**
+    ```bash
+    npm run build
+    ```
 
-- Sync android codebase
+2.  **Sync Capacitor**
+    ```bash
+    npx cap sync android
+    ```
 
-```base
-ionic cap sync android
-```
+3.  **Open in Android Studio**
+    ```bash
+    npx cap open android
+    ```
 
-- Opening the Project in android Studio
+---
 
-```bash
-ionic cap open android
-```
+## Documentation
 
-Now you can run the app on a physical device or a virtual emulator, you can also build the app from the menu bar
+The underlying MeshKit SDK documentation can be found in the **[Ionic-meshkit-release repository](https://github.com/IPFS-Meshkit/Ionic-meshkit-release)**.
 
-## Running the Project on IOS Device
-
-- Install XCode and XCode CLI if not already installed.
-
-- Sync ios codebase
-
-```base
-ionic cap sync ios
-```
-
-- Opening the Project in XCode
-
-```bash
-ionic cap open ios
-```
-
-Now you can run the app on a physical device or a virtual emulator, you can also build the app from the menu bar
+*(Please refer to the SDK repository for comprehensive API documentation, method definitions, and low-level decentralized storage implementation details).*
